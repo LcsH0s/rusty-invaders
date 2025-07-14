@@ -152,6 +152,7 @@ impl Game {
             }
         }
     }
+
     fn draw_ship(&mut self, x: usize) {
         self.draw_pixel_matrix(
             x,
