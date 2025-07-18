@@ -4,11 +4,13 @@ use crate::player::Player;
 
 use minifb::{Key, Window, WindowOptions};
 use raqote::{DrawOptions, DrawTarget, PathBuilder, SolidSource, Source};
+use std::{thread, time};
 
 pub const WINDOW_PIXEL_WIDTH: usize = 150;
 pub const WINDOW_PIXEL_HEIGHT: usize = 100;
 
 const PIXEL_SIZE: usize = 6;
+const TICK_DURATION: u64 = 20;
 
 pub struct Game {
     window: Window,
@@ -60,6 +62,7 @@ impl Game {
 
     pub fn run(&mut self) {
         loop {
+            let start = time::Instant::now();
             let keys = self.window.get_keys();
             for key in keys {
                 match key {
@@ -70,6 +73,11 @@ impl Game {
                 }
             }
             self.render();
+
+            let elapsed = start.elapsed().as_millis();
+            if elapsed < TICK_DURATION as u128 {
+                thread::sleep(time::Duration::from_millis(TICK_DURATION - elapsed as u64));
+            }
         }
     }
 
