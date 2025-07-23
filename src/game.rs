@@ -1,6 +1,6 @@
-use crate::draw::Draw;
-use crate::pixel::Pixel;
 use crate::player::Player;
+use crate::traits::{Draw, Kinetic};
+use crate::{pixel::Pixel, shot::Shot};
 
 use minifb::{Key, Window, WindowOptions};
 use raqote::{DrawOptions, DrawTarget, PathBuilder, SolidSource, Source};
@@ -10,26 +10,19 @@ pub const WINDOW_PIXEL_WIDTH: usize = 150;
 pub const WINDOW_PIXEL_HEIGHT: usize = 100;
 
 const PIXEL_SIZE: usize = 6;
-const TICK_DURATION: u64 = 20;
+const TICK_DURATION: u64 = 10;
 
 pub struct Game {
     window: Window,
-    player: Player,
     screen: Vec<Vec<Option<Pixel>>>,
+
+    player: Player,
+    pshots: Vec<Shot>,
 }
 
 impl Game {
     pub fn new() -> Self {
-        let mut screen = Vec::with_capacity(WINDOW_PIXEL_HEIGHT);
-
-        for _ in 0..WINDOW_PIXEL_HEIGHT {
-            let mut line = Vec::with_capacity(WINDOW_PIXEL_WIDTH);
-            for _ in 0..WINDOW_PIXEL_WIDTH {
-                line.push(Pixel::black());
-            }
-            screen.push(line);
-        }
-
+        // minifb window creation
         let window = Window::new(
             "Rusty Invaders",
             WINDOW_PIXEL_WIDTH * PIXEL_SIZE,
@@ -40,7 +33,7 @@ impl Game {
         )
         .unwrap();
 
-        let player = Self::create_player();
+        let player = Player::new();
 
         let mut screen = Vec::with_capacity(WINDOW_PIXEL_HEIGHT);
         for _ in 0..WINDOW_PIXEL_HEIGHT {
@@ -51,32 +44,39 @@ impl Game {
             window,
             player,
             screen,
+            pshots: Vec::new(),
         };
 
         game
     }
 
-    fn create_player() -> Player {
-        Player::new()
-    }
-
     pub fn run(&mut self) {
         loop {
-            let start = time::Instant::now();
+            let tick_start = time::Instant::now();
+
             let keys = self.window.get_keys();
             for key in keys {
                 match key {
                     Key::Left => self.player.left(),
                     Key::Right => self.player.right(),
-                    Key::Space => println!("Ship firing (pew pew)"),
+                    Key::Space => {
+                        if let Some(shot) = self.player.shoot() {
+                            self.pshots.push(shot);
+                        }
+                    }
                     _ => (),
                 }
             }
+
+            self.pshots.retain_mut(|shot| shot.translate());
+
             self.render();
 
-            let elapsed = start.elapsed().as_millis();
-            if elapsed < TICK_DURATION as u128 {
-                thread::sleep(time::Duration::from_millis(TICK_DURATION - elapsed as u64));
+            let tick_elapsed = tick_start.elapsed().as_millis();
+            if tick_elapsed < TICK_DURATION as u128 {
+                thread::sleep(time::Duration::from_millis(
+                    TICK_DURATION - tick_elapsed as u64,
+                ));
             }
         }
     }
@@ -117,6 +117,10 @@ impl Game {
         self.clear_screen();
 
         self.player.draw(&mut self.screen);
+
+        for s in &self.pshots {
+            s.draw(&mut self.screen);
+        }
     }
 
     fn clear_screen(&mut self) {
